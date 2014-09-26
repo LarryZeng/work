@@ -1,4 +1,4 @@
-int pinSDA = 5;
+int pinSDA = 2;
 int pinSCL = 3;
 int pinButton = 4;
 
@@ -26,40 +26,53 @@ void setup()
   pinMode(pinSDA,OUTPUT);
   pinMode(pinSCL,OUTPUT);  
 }
-char buffer[3];
-byte controlData = 0x0b;
-word chainData = 0xbd10;
+#define RX_BUF_SIZE 100
+char rx_buf[RX_BUF_SIZE];
+int rx_buf_cnt;
+
+byte controlData = 0;
+word chainData = 0;
 
 void loop()
 {
- if(Serial.available()>0)
- {
-    Serial.readBytes(buffer,3);
-    Serial.print("buffer");
-    Serial.println(buffer);
-    
-    Serial.println(controlData,BIN);
-    Serial.println(chainData,BIN);
-    if(handShake_Send() == true)
+  while(Serial.available()>0)
+  {
+    char ch = Serial.read();
+    rx_buf[rx_buf_cnt] = ch;
+    if(rx_buf_cnt < RX_BUF_SIZE)
     {
-      sendData(controlData,chainData);
+      rx_buf_cnt++;
     }
- }
-   pinMode(pinSDA,INPUT);
-   
-   if(digitalRead(pinSDA) == LOW)
-   {
-     if(handShake_Receive() == true)
-     {
-       if(receiveData() == true)
-       {
-    //     Serial.println("controlData");
-     //    Serial.println(controlData_receive,BIN);
-     //    Serial.println("chainData");
-      //   Serial.println(chainData_receive,BIN);
-       }
-     }
-   }
+    if(ch == 0x0D)
+    {
+      controlData = rx_buf[0]&0x0F;
+      word temp = rx_buf[1];
+      chainData = (temp<<8)|rx_buf[2];
+
+      Serial.println(controlData,BIN);
+      Serial.println(chainData,BIN);
+      if(handShake_Send() == true)
+      {
+        sendData(controlData,chainData);
+      }
+      rx_buf_cnt = 0;
+    }
+  }
+  
+  pinMode(pinSDA,INPUT);   
+  if(digitalRead(pinSDA) == LOW)
+  {
+    if(handShake_Receive() == true)
+    {
+      if(receiveData() == true)
+      {
+         Serial.println("controlData");
+         Serial.println(controlData_receive,BIN);
+         Serial.println("chainData");
+         Serial.println(chainData_receive,BIN);
+      }
+    }
+  }   
 }
 
 boolean handShake_Receive(void)
@@ -261,7 +274,6 @@ void sendData(byte controlData , word chainData)
       return;
     }
   }
-  Serial.println("success");
   delayMicroseconds(1000);
   resetState();
 }
