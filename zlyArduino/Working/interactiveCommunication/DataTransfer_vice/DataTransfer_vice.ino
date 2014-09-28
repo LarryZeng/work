@@ -1,3 +1,5 @@
+#define MAX_WAIT_TIME 10000
+#define RX_BUF_SIZE 100
 int pinSDA = 2;
 int pinSCL = 3;
 int pinButton = 4;
@@ -7,6 +9,28 @@ word chainData_record = 0;
 
 byte controlData_receive = 0;
 word chainData_receive = 0;
+
+char rx_buf[RX_BUF_SIZE];
+int rx_buf_cnt;
+
+byte controlData = 0;
+word chainData = 0;
+
+
+unsigned long getGapTime(unsigned long startTime,unsigned long stopTime)
+{
+  unsigned long gapTime = 0;
+  const unsigned long resetTime = 0;
+  if((stopTime - startTime)< 0)
+  {
+    gapTime = resetTime - startTime + stopTime; //4294967296 is reset time
+  }
+  else
+  {
+    gapTime = stopTime- startTime;
+  }
+  return gapTime;
+}
 
 void resetState(void)
 {
@@ -27,13 +51,6 @@ void setup()
   pinMode(pinSCL,OUTPUT);  
 }
 
-#define RX_BUF_SIZE 100
-char rx_buf[RX_BUF_SIZE];
-int rx_buf_cnt;
-
-byte controlData = 0;
-word chainData = 0;
-
 void loop()
 {
   while(Serial.available()>0)
@@ -51,7 +68,7 @@ void loop()
       chainData = (temp<<8)|rx_buf[2];
 
       Serial.println(controlData,BIN);
-      Serial.println(chainData,BIN);    
+      Serial.println(chainData,BIN);
       if(handShake_Send() == true)
       {
         sendData(controlData,chainData);
@@ -59,6 +76,7 @@ void loop()
       rx_buf_cnt = 0;
     }
   }
+
   pinMode(pinSDA,INPUT);   
   if(digitalRead(pinSDA) == LOW)
   {
@@ -80,7 +98,6 @@ boolean handShake_Receive(void)
   unsigned long startTime = 0;
   unsigned long stopTime = 0;
   unsigned long gapTime = 0;
-  
   pinMode(pinSCL,OUTPUT);
   pinMode(pinSDA,INPUT);
 
@@ -91,7 +108,7 @@ boolean handShake_Receive(void)
   while ((digitalRead(pinSDA)) == LOW);
   {
     stopTime = micros();
-    gapTime = stopTime - startTime;
+    gapTime = getGapTime(startTime,stopTime);
     if(gapTime > 10000)
     {
       resetState();
@@ -117,8 +134,8 @@ boolean handShake_Send(void)
   while(digitalRead(pinSCL) == HIGH)//wait scl to low
   {
     stopTime = micros();
-    gapTime = stopTime - startTime;
-    if(gapTime>10000)
+    gapTime = getGapTime(startTime,stopTime);
+    if(gapTime > 10000)
     {
      resetState();
      return false;
@@ -131,7 +148,7 @@ boolean handShake_Send(void)
   while(digitalRead(pinSCL) == LOW)
   {
     stopTime = micros();
-    gapTime = stopTime - startTime;
+    gapTime = getGapTime(startTime,stopTime);
    if(gapTime>10000)
     {
      resetState();
@@ -239,6 +256,7 @@ void sendData(byte controlData , word chainData)
   byte checkSum = 0x00;
   unsigned long startTime = 0;
   unsigned long stopTime = 0;
+  unsigned long gapTime = 0;
   static byte count = 0;
   controlData_record = controlData;
   chainData_record = chainData;
@@ -263,19 +281,29 @@ void sendData(byte controlData , word chainData)
   while((digitalRead(pinSDA)) == HIGH)
   {
     stopTime = micros();
-    if((stopTime - startTime) > 10000)
+    gapTime = getGapTime(startTime,stopTime);
+    if(gapTime > 10000)
     {
-      if(count < 3)
+      Serial.println("send fail");
+      if(count < 5)
       {
         count++;
-        sendData(controlData_record,chainData_record);
-      }
+        Serial.println(count);
+        resetState();
+        delay(500);
+        if(handShake_Send() == true)
+        {
+         sendData(controlData_record,chainData_record);
+        }
+       }
+       count = 0;
       resetState();
       return;
     }
   }
   delayMicroseconds(1000);
   resetState();
+  delay(250);
 }
 
 boolean receiveData(void)
@@ -298,7 +326,8 @@ boolean receiveData(void)
   while((digitalRead(pinSCL)) == HIGH);
   {
     stopTime = micros();
-    if((stopTime - startTime)>10000)
+    gapTime = getGapTime(startTime,stopTime);
+    if(gapTime > 10000)
     {
       resetState();
       return false;
@@ -312,7 +341,8 @@ boolean receiveData(void)
     while((digitalRead(pinSCL)) == LOW)
     {
       stopTime = micros();
-      if((stopTime - startTime) > 10000)
+      gapTime = getGapTime(startTime,stopTime);
+      if(gapTime > 10000)
       {
         resetState();
         return false;
@@ -327,7 +357,8 @@ boolean receiveData(void)
     while(digitalRead(pinSCL) == HIGH)
     {
       stopTime = micros();
-      if((stopTime - startTime) > 10000)
+      gapTime = getGapTime(startTime,stopTime);
+      if(gapTime > 10000)
       {
         resetState();
         return false;
@@ -345,12 +376,13 @@ boolean receiveData(void)
   delayMicroseconds(1000);
   
   int testnum = calculateChecksum(controlData,chainData);
+
   if(checkSum == testnum)
   {
     digitalWrite(pinSDA,LOW);
   }
   else
-  {
+  { 
     resetState(); 
     return false;
   }
