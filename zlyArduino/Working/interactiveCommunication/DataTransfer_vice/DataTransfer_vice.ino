@@ -53,6 +53,7 @@ void setup()
 
 void loop()
 {
+  int reSendCount = 0;
   while(Serial.available()>0)
   {
     char ch = Serial.read();
@@ -69,9 +70,17 @@ void loop()
 
       Serial.println(controlData,BIN);
       Serial.println(chainData,BIN);
-      if(handShake_Send() == true)
+      while(reSendCount<5)
       {
-        sendData(controlData,chainData);
+         Serial.println("ready send data");
+         Serial.println(reSendCount);
+        if(handShake_Send() == true)
+        {
+          sendData(controlData,chainData);
+          break;
+        }
+        delay(2000);
+        reSendCount++;
       }
       rx_buf_cnt = 0;
     }
@@ -136,9 +145,9 @@ boolean handShake_Send(void)
     stopTime = micros();
     gapTime = getGapTime(startTime,stopTime);
     if(gapTime > 10000)
-    {
-     resetState();
-     return false;
+    {   
+      resetState();
+      return false;
     }
   }
   delayMicroseconds(1000);
