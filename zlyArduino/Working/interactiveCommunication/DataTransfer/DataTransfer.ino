@@ -20,7 +20,7 @@ word chainData = 0;
 unsigned long getGapTime(unsigned long startTime,unsigned long stopTime)
 {
   unsigned long gapTime = 0;
-  const unsigned long resetTime = 0;
+  const unsigned long resetTime = 4294967295ul;
   if((stopTime - startTime)< 0)
   {
     gapTime = resetTime - startTime + stopTime; //4294967296 is reset time
