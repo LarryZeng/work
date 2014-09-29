@@ -1,5 +1,7 @@
 #define MAX_WAIT_TIME 10000
 #define RX_BUF_SIZE 100
+#define MAX_RESEND_COUNT 5
+#define FAIL_WAIT_TIME 500
 int pinSDA = 2;
 int pinSCL = 3;
 int pinButton = 4;
@@ -70,16 +72,15 @@ void loop()
 
       Serial.println(controlData,BIN);
       Serial.println(chainData,BIN);
-      while(reSendCount<5)
+      while(reSendCount < MAX_RESEND_COUNT)
       {
          Serial.println("ready send data");
          Serial.println(reSendCount);
-        if(handShake_Send() == true)
+        if((sendData(controlData,chainData)) == true)
         {
-          sendData(controlData,chainData);
           break;
         }
-        delay(2000);
+        delay(FAIL_WAIT_TIME);
         reSendCount++;
       }
       rx_buf_cnt = 0;
@@ -107,6 +108,7 @@ boolean handShake_Receive(void)
   unsigned long startTime = 0;
   unsigned long stopTime = 0;
   unsigned long gapTime = 0;
+  
   pinMode(pinSCL,OUTPUT);
   pinMode(pinSDA,INPUT);
 
@@ -145,9 +147,9 @@ boolean handShake_Send(void)
     stopTime = micros();
     gapTime = getGapTime(startTime,stopTime);
     if(gapTime > 10000)
-    {   
-      resetState();
-      return false;
+    {
+     resetState();
+     return false;
     }
   }
   delayMicroseconds(1000);
@@ -259,7 +261,7 @@ byte calculateChecksum(byte controlData,word chainData)
   return data;
 }
 
-void sendData(byte controlData , word chainData)
+boolean sendData(byte controlData , word chainData)
 {
   byte Txsign = 0;
   byte checkSum = 0x00;
@@ -270,6 +272,12 @@ void sendData(byte controlData , word chainData)
   controlData_record = controlData;
   chainData_record = chainData;
   checkSum = calculateChecksum(controlData,chainData);
+ 
+  if(handShake_Send() == false)
+  {
+    Serial.println("A");
+    return false;
+  }
  
   digitalWrite(pinSCL,HIGH);
   digitalWrite(pinSDA,HIGH);
@@ -294,25 +302,13 @@ void sendData(byte controlData , word chainData)
     if(gapTime > 10000)
     {
       Serial.println("send fail");
-      if(count < 5)
-      {
-        count++;
-        Serial.println(count);
-        resetState();
-        delay(500);
-        if(handShake_Send() == true)
-        {
-         sendData(controlData_record,chainData_record);
-        }
-       }
-       count = 0;
-      resetState();
-      return;
+      return false;
     }
   }
   delayMicroseconds(1000);
   resetState();
   delay(250);
+  return true;
 }
 
 boolean receiveData(void)
@@ -385,13 +381,12 @@ boolean receiveData(void)
   delayMicroseconds(1000);
   
   int testnum = calculateChecksum(controlData,chainData);
-
   if(checkSum == testnum)
   {
     digitalWrite(pinSDA,LOW);
   }
   else
-  { 
+  {
     resetState(); 
     return false;
   }
