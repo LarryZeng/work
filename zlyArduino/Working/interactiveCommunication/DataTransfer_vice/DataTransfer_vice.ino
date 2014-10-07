@@ -45,12 +45,6 @@ void setup()
 {
   Serial.begin(9600);
   pinMode(pinButton,INPUT);
-  
-  digitalWrite(pinSCL,HIGH);
-  digitalWrite(pinSDA,HIGH);
-
-  pinMode(pinSDA,OUTPUT);
-  pinMode(pinSCL,OUTPUT);  
 }
 
 void loop()
