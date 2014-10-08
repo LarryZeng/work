@@ -36,10 +36,12 @@ unsigned long getGapTime(unsigned long startTime,unsigned long stopTime)
 
 void resetState(void)
 {
+  pinMode(pinSDA,INPUT);
+  pinMode(pinSCL,INPUT);
   digitalWrite(pinSDA,HIGH);
   digitalWrite(pinSCL,HIGH);
-  pinMode(pinSDA,OUTPUT);
-  pinMode(pinSCL,OUTPUT);
+ // pinMode(pinSDA,OUTPUT);
+ // pinMode(pinSCL,OUTPUT);
 }
 void setup()
 {
@@ -108,13 +110,13 @@ boolean handShake_Receive(void)
   unsigned long stopTime = 0;
   unsigned long gapTime = 0;
   
-  
-//  pinMode(pinSDA,INPUT);
   delayMicroseconds(1000);
-  digitalWrite(pinSCL,LOW);
+  
   pinMode(pinSCL,OUTPUT);  
+  digitalWrite(pinSCL,LOW);
   
   startTime = micros();
+  pinMode(pinSDA,INPUT);
   while ((digitalRead(pinSDA)) == LOW);
   {
     stopTime = micros();
@@ -126,6 +128,7 @@ boolean handShake_Receive(void)
     }
   }
   delayMicroseconds(1000);
+  pinMode(pinSCL,INPUT);
   digitalWrite(pinSCL,HIGH); 
   return true;
 }
@@ -136,12 +139,12 @@ boolean handShake_Send(void)
   unsigned long stopTime = 0;
   unsigned long gapTime = 0;
 
-  pinMode(pinSCL,INPUT);
-  
-  digitalWrite(pinSDA,LOW); 
   pinMode(pinSDA,OUTPUT);
+  digitalWrite(pinSDA,LOW); 
+
   
   startTime = micros();
+  pinMode(pinSCL,INPUT);
   while(digitalRead(pinSCL) == HIGH)//wait scl to low
   {
     stopTime = micros();
@@ -153,6 +156,7 @@ boolean handShake_Send(void)
     }
   }
   delayMicroseconds(1000);
+  pinMode(pinSDA,INPUT);
   digitalWrite(pinSDA,HIGH);
  
   startTime = micros();
@@ -170,13 +174,21 @@ boolean handShake_Send(void)
 }
 void sendTxsign(boolean sign)
 {
+  pinMode(pinSCL,OUTPUT);
   digitalWrite(pinSCL,LOW);
   delayMicroseconds(1000);
   if(sign)
+  {
+    pinMode(pinSDA,INPUT);
     digitalWrite(pinSDA,HIGH);
+  }
   else
+  {
+    pinMode(pinSDA,OUTPUT);
     digitalWrite(pinSDA,LOW);
+  }
   delayMicroseconds(1000);
+  pinMode(pinSCL,INPUT);
   digitalWrite(pinSCL,HIGH);
   delayMicroseconds(1000);
 }
@@ -187,18 +199,22 @@ void sendChecksum(byte data)
   data = data << 4;
   for(int i = 0;i < 4;i++)
   {
+    pinMode(pinSCL,OUTPUT);
     digitalWrite(pinSCL,LOW); //pinSCL = 0;
     delayMicroseconds(1000);
     if((data&temp)!= 0)
     {
+      pinMode(pinSDA,INPUT);
       digitalWrite(pinSDA,HIGH); //pinSDA == 1;
     }
     else
     {
+      pinMode(pinSDA,OUTPUT);
       digitalWrite(pinSDA,LOW);// pinSDA = 0;
     }
     temp >>= 1;
     delayMicroseconds(1000);
+    pinMode(pinSCL,INPUT);
     digitalWrite(pinSCL,HIGH);
     delayMicroseconds(1000);
   }
@@ -210,18 +226,22 @@ void sendControlData(byte data)
   data = data << 4;
   for(int i = 0;i < 4;i++)
   {
+    pinMode(pinSCL,OUTPUT);
     digitalWrite(pinSCL,LOW); //pinSCL = 0;
     delayMicroseconds(1000);
     if((data&temp)!= 0)
     {
+      pinMode(pinSDA,INPUT);
       digitalWrite(pinSDA,HIGH); //pinSDA == 1;
     }
     else
     {
+      pinMode(pinSDA,OUTPUT);
       digitalWrite(pinSDA,LOW);// pinSDA = 0;
     }
     temp >>= 1;
     delayMicroseconds(1000);
+    pinMode(pinSCL,INPUT);
     digitalWrite(pinSCL,HIGH);
     delayMicroseconds(1000);
   }
@@ -232,18 +252,22 @@ void sendChain(word data)
   word temp = 0x8000;
   for(int i = 0;i < 16;i++)
   {
+    pinMode(pinSCL,OUTPUT);
     digitalWrite(pinSCL,LOW); //pinSCL = 0;
     delayMicroseconds(1000);
     if((data&temp)!= 0)
     {
+      pinMode(pinSDA,INPUT);
       digitalWrite(pinSDA,HIGH); //pinSDA == 1;
     }
     else
     {
+      pinMode(pinSDA,OUTPUT);
       digitalWrite(pinSDA,LOW);// pinSDA = 0;
     }
     temp >>= 1;
     delayMicroseconds(1000);
+    pinMode(pinSCL,INPUT);
     digitalWrite(pinSCL,HIGH);
     delayMicroseconds(1000);
   }
@@ -278,11 +302,7 @@ boolean sendData(byte controlData , word chainData)
     Serial.println("A");
     return false;
   }
- 
-  digitalWrite(pinSCL,HIGH);
-  digitalWrite(pinSDA,HIGH);
-  pinMode(pinSCL,OUTPUT);
-  pinMode(pinSDA,OUTPUT);
+
   delayMicroseconds(1000);  
 
   sendTxsign(Txsign);  //send resetSign bit;
@@ -290,11 +310,13 @@ boolean sendData(byte controlData , word chainData)
   sendControlData(controlData);//send controlData;
   sendChain(chainData);    //send chainData;  
   
+  pinMode(pinSCL,OUTPUT);
   digitalWrite(pinSCL,LOW); //end 
   pinMode(pinSDA,INPUT);
   
   delayMicroseconds(500);
   startTime = micros();
+  
   while((digitalRead(pinSDA)) == HIGH)
   {
     stopTime = micros();
@@ -375,14 +397,15 @@ boolean receiveData(void)
   checkSum = byte((data & 0x00f00000)>>20);
   controlData = byte((data & 0x000f0000)>>16);
   chainData = word((data & 0x0000ffff));
-
+  
+  pinMode(pinSDA,INPUT);
   digitalWrite(pinSDA,HIGH);
-  pinMode(pinSDA,OUTPUT);
   delayMicroseconds(1000);
   
   int testnum = calculateChecksum(controlData,chainData);
   if(checkSum == testnum)
   {
+    pinMode(pinSDA,OUTPUT);
     digitalWrite(pinSDA,LOW);
   }
   else
