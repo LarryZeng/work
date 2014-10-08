@@ -58,24 +58,29 @@ void loop()
     {
       rx_buf_cnt++;
     }
-    if(ch == 0x0D)
+    if(ch == 0x0D || ch == 0x0A)
     {
-      controlData = rx_buf[0]&0x0F;
-      word temp = rx_buf[1];
-      chainData = (temp<<8)|rx_buf[2];
-
-      Serial.println(controlData,BIN);
-      Serial.println(chainData,BIN);
-      while(reSendCount < MAX_RESEND_COUNT)
+      if(rx_buf_cnt > 3)
       {
-         Serial.println("ready send data");
-         Serial.println(reSendCount);
-        if((sendData(controlData,chainData)) == true)
+        Serial.println("rx_buf_cnt:");
+        Serial.println(rx_buf_cnt);
+        controlData = rx_buf[0]&0x0F;
+        word temp = rx_buf[1];
+        chainData = (temp<<8)|rx_buf[2];
+
+        Serial.println(controlData,BIN);
+        Serial.println(chainData,BIN);
+        while(reSendCount < MAX_RESEND_COUNT)
         {
-          break;
+          Serial.println("ready send data");
+          Serial.println(reSendCount);
+          if((sendData(controlData,chainData)) == true)
+          {
+            break;
+          }
+          delay(FAIL_WAIT_TIME);
+          reSendCount++;
         }
-        delay(FAIL_WAIT_TIME);
-        reSendCount++;
       }
       rx_buf_cnt = 0;
     }
@@ -103,11 +108,11 @@ boolean handShake_Receive(void)
   unsigned long stopTime = 0;
   unsigned long gapTime = 0;
   
-  pinMode(pinSCL,OUTPUT);
-  pinMode(pinSDA,INPUT);
-
+  
+//  pinMode(pinSDA,INPUT);
   delayMicroseconds(1000);
-  digitalWrite(pinSCL,LOW);  
+  digitalWrite(pinSCL,LOW);
+  pinMode(pinSCL,OUTPUT);  
   
   startTime = micros();
   while ((digitalRead(pinSDA)) == LOW);
@@ -131,10 +136,11 @@ boolean handShake_Send(void)
   unsigned long stopTime = 0;
   unsigned long gapTime = 0;
 
-  pinMode(pinSDA,OUTPUT);
   pinMode(pinSCL,INPUT);
-
+  
   digitalWrite(pinSDA,LOW); 
+  pinMode(pinSDA,OUTPUT);
+  
   startTime = micros();
   while(digitalRead(pinSCL) == HIGH)//wait scl to low
   {

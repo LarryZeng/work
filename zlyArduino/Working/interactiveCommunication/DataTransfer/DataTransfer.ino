@@ -108,11 +108,11 @@ boolean handShake_Receive(void)
   unsigned long stopTime = 0;
   unsigned long gapTime = 0;
   
-  pinMode(pinSCL,OUTPUT);
-  pinMode(pinSDA,INPUT);
-
+  
+//  pinMode(pinSDA,INPUT);
   delayMicroseconds(1000);
-  digitalWrite(pinSCL,LOW);  
+  digitalWrite(pinSCL,LOW);
+  pinMode(pinSCL,OUTPUT);  
   
   startTime = micros();
   while ((digitalRead(pinSDA)) == LOW);
@@ -136,10 +136,11 @@ boolean handShake_Send(void)
   unsigned long stopTime = 0;
   unsigned long gapTime = 0;
 
-  pinMode(pinSDA,OUTPUT);
   pinMode(pinSCL,INPUT);
-
+  
   digitalWrite(pinSDA,LOW); 
+  pinMode(pinSDA,OUTPUT);
+  
   startTime = micros();
   while(digitalRead(pinSCL) == HIGH)//wait scl to low
   {
